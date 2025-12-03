@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>PNU Pixel Map Demo</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    #map { width: 100vw; height: 100vh; }
+
+    #color-picker {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 8px 12px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+      display: none;
+      gap: 8px;
+      align-items: center;
+      z-index: 1000;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   sans-serif;
+    }
+
+    .color-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      cursor: pointer;
+    }
+
+    #color-picker span {
+      font-size: 14px;
+      margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- 간단한 색 선택 UI -->
+  <div id="color-picker">
+    <span>색 선택:</span>
+    <!-- JS로 칩이 들어감 -->
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // ==========================
+    // 1. 지도 초기화 + 부산대 구획 제한
+    // ==========================
+
+    // 대략적인 부산대 본캠퍼스 구역 (필요하면 나중에 미세 조정)
+    const pnuBounds = L.latLngBounds(
+      [35.227, 129.077], // 남서
+      [35.237, 129.092]  // 북동
+    );
+
+    const map = L.map('map', {
+      center: [35.232, 129.084], // 캠퍼스 중간쯤
+      zoom: 16,
+      minZoom: 15,
+      maxZoom: 19,
+      maxBounds: pnuBounds,
+      maxBoundsViscosity: 1.0 // 경계 바깥으로 잘 못 나가게 끈적하게
+    });
+
+    // 기본 OSM 대신 Carto의 연한 라이트맵 사용 (채도 덜 쨍함)
+    L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png',
+      {
+        attribution:
+          '&copy; OpenStreetMap, &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }
+    ).addTo(map);
+
+    // ==========================
+    // 2. 그리드 설정 (10px)
+    // ==========================
+    const BASE_ZOOM = 18;     // 기준 줌
+    const CELL_SIZE = 10;     // 10px x 10px (월드 픽셀 기준)
+
+    // 셀 저장용 (나중에 여기만 백엔드 연동하면 됨)
+    // key: "x,y"  value: { x, y, color, nickname, rect }
+    const cells = new Map();
+    const cellLayerGroup = L.layerGroup().addTo(map);
+
+    // 선택된 셀 하이라이트용 레이어
+    const selectionLayer = L.layerGroup().addTo(map);
+    let selectedRect = null;
+    let pendingCell = null;  // { cellX, cellY }
+
+    // ==========================
+    // 3. 좌표 변환 함수
+    // ==========================
+    function latLngToCell(latlng) {
+      // 위경도 -> 기준 줌에서의 픽셀 좌표
+      const p = map.project(latlng, BASE_ZOOM);
+      const cellX = Math.floor(p.x / CELL_SIZE);
+      const cellY = Math.floor(p.y / CELL_SIZE);
+      return { cellX, cellY };
+    }
+
+    function cellToBounds(cellX, cellY) {
+      const nwPoint = L.point(cellX * CELL_SIZE, cellY * CELL_SIZE);
+      const sePoint = L.point((cellX + 1) * CELL_SIZE, (cellY + 1) * CELL_SIZE);
+
+      const nwLatLng = map.unproject(nwPoint, BASE_ZOOM);
+      const seLatLng = map.unproject(sePoint, BASE_ZOOM);
+
+      return [nwLatLng, seLatLng]; // Leaflet rectangle bounds
+    }
+
+    // ==========================
+    // 4. 색 선택 UI 준비
+    // ==========================
+    const colors = ['#ff6b6b', '#ffdd59', '#1dd1a1', '#54a0ff', '#576574'];
+    const colorPicker = document.getElementById('color-picker');
+
+    colors.forEach(c => {
+      const el = document.createElement('div');
+      el.className = 'color-dot';
+      el.style.backgroundColor = c;
+      el.addEventListener('click', () => {
+        if (!pendingCell) return;
+        const { cellX, cellY } = pendingCell;
+        paintCell(cellX, cellY, c);
+        pendingCell = null;
+        colorPicker.style.display = 'none';
+        clearSelectionHighlight();
+      });
+      colorPicker.appendChild(el);
+    });
+
+    function clearSelectionHighlight() {
+      if (selectedRect) {
+        selectionLayer.removeLayer(selectedRect);
+        selectedRect = null;
+      }
+    }
+
+    // ==========================
+    // 5. 셀 그리기 & 저장
+    // ==========================
+    function drawCell(cell) {
+      const bounds = cellToBounds(cell.x, cell.y);
+      const rect = L.rectangle(bounds, {
+        color: cell.color,
+        weight: 0,
+        fillColor: cell.color,
+        fillOpacity: 0.8,
+      });
+
+      // 칠해진 셀 클릭 시 닉네임 표시
+      rect.on('click', (e) => {
+        alert(`이 칸은 "${cell.nickname}" 님이 칠했습니다.`);
+        // 지도 클릭 이벤트로 전파 막기
+        L.DomEvent.stopPropagation(e);
+      });
+
+      rect.addTo(cellLayerGroup);
+      cell.rect = rect;
+    }
+
+    function paintCell(cellX, cellY, color) {
+      const key = `${cellX},${cellY}`;
+      if (cells.has(key)) {
+        alert('이미 누군가 칠한 칸입니다.');
+        return;
+      }
+
+      const nickname = prompt('닉네임을 입력하세요:');
+      if (!nickname) return;
+
+      const cell = { x: cellX, y: cellY, color, nickname };
+      cells.set(key, cell);
+      drawCell(cell);
+    }
+
+    // ==========================
+    // 6. 지도 클릭 핸들러
+    // ==========================
+    map.on('click', (e) => {
+      // 혹시라도 부산대 경계 밖 클릭이면 무시 (maxBounds가 거의 막긴 함)
+      if (!pnuBounds.contains(e.latlng)) {
+        return;
+      }
+
+      const { cellX, cellY } = latLngToCell(e.latlng);
+      const key = `${cellX},${cellY}`;
+
+      // 이미 칠해진 칸이면: 선택 효과 대신 닉네임만
+      if (cells.has(key)) {
+        const cell = cells.get(key);
+        alert(`이미 "${cell.nickname}" 님이 칠한 칸입니다.`);
+        clearSelectionHighlight();
+        colorPicker.style.display = 'none';
+        return;
+      }
+
+      // 빈 칸이면: 선택한 셀 하이라이트 + 색 선택 UI
+      pendingCell = { cellX, cellY };
+
+      // 기존 선택 사각형 제거
+      clearSelectionHighlight();
+
+      // 새 선택 사각형 생성
+      const bounds = cellToBounds(cellX, cellY);
+      selectedRect = L.rectangle(bounds, {
+        color: '#ffffff',
+        weight: 2,
+        dashArray: '4,2',
+        fill: false
+      }).addTo(selectionLayer);
+
+      colorPicker.style.display = 'flex';
+    });
+
+    // ==========================
+    // 7. 데모용: 초기 데이터 몇 개 (옵션)
+    // ==========================
+    const demoCells = [
+      { x: 100000, y: 100000, color: '#ff6b6b', nickname: '선배1' },
+      { x: 100001, y: 100000, color: '#54a0ff', nickname: '선배2' },
+    ];
+    demoCells.forEach(c => {
+      const key = `${c.x},${c.y}`;
+      cells.set(key, c);
+      drawCell(c);
+    });
+  </script>
+</body>
+</html>
