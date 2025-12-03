@@ -112,5 +112,5 @@ MIT License.
 
 ## 📬 Contact
 
-문의 또는 협업 제안:  
+ 
 400poi@pusan.ac.kr
