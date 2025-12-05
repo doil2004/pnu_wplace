@@ -1,0 +1,28 @@
+{
+  "name": "pnu_wplace",
+  "version": "1.0.0",
+  "description": "부산대학교 캠퍼스를 **실제 지도 위에 10×10픽셀 그리드**로 나누고,  \r 학생들이 그 위에 **색을 칠하며 완성해 나가는 집단 캔버스 프로젝트**입니다.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/doil2004/pnu_wplace.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/doil2004/pnu_wplace/issues"
+  },
+  "homepage": "https://github.com/doil2004/pnu_wplace#readme",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-session": "^1.18.2",
+    "pg": "^8.16.3"
+  }
+}
