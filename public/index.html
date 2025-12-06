@@ -122,11 +122,12 @@
   <!-- 색 선택 UI -->
   <div id="color-picker">
     <span>색 선택:</span>
-    <!-- JS에서 컬러칩 생성 -->
   </div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Socket.IO Client -->
+  <script src="/socket.io/socket.io.js"></script>
 
   <script>
     // ==========================
@@ -210,27 +211,24 @@
     // ==========================
     // 1. 지도 초기화 + 부산대 구획 제한
     // ==========================
-    // 대략적인 부산대 본캠퍼스 구역 (필요하면 나중에 미세 조정)
     const pnuBounds = L.latLngBounds(
       [35.227, 129.077], // 남서
       [35.237, 129.092]  // 북동
     );
 
     const map = L.map('map', {
-      center: [35.232, 129.084], // 캠퍼스 중간쯤
+      center: [35.232, 129.084],
       zoom: 16,
       minZoom: 15,
       maxZoom: 19,
       maxBounds: pnuBounds,
-      maxBoundsViscosity: 1.0 // 경계 바깥으로 잘 못 나가게 끈적하게
+      maxBoundsViscosity: 1.0
     });
 
-    // 기본 OSM 대신 Carto의 연한 라이트맵 사용 (채도 덜 쨍함)
     L.tileLayer(
       'https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png',
       {
-        attribution:
-          '&copy; OpenStreetMap, &copy; CARTO',
+        attribution: '&copy; OpenStreetMap, &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 20
       }
@@ -239,23 +237,17 @@
     // ==========================
     // 2. 그리드 설정 (10px)
     // ==========================
-    const BASE_ZOOM = 18;     // 기준 줌
-    const CELL_SIZE = 10;     // 10px x 10px (월드 픽셀 기준)
+    const BASE_ZOOM = 18;
+    const CELL_SIZE = 10;
 
-    // key: "x,y"  value: { x, y, color, nickname, rect }
     const cells = new Map();
     const cellLayerGroup = L.layerGroup().addTo(map);
 
-    // 선택된 셀 하이라이트용 레이어
     const selectionLayer = L.layerGroup().addTo(map);
     let selectedRect = null;
-    let pendingCell = null;  // { cellX, cellY }
+    let pendingCell = null;
 
-    // ==========================
-    // 3. 좌표 변환 함수
-    // ==========================
     function latLngToCell(latlng) {
-      // 위경도 -> 기준 줌에서의 픽셀 좌표
       const p = map.project(latlng, BASE_ZOOM);
       const cellX = Math.floor(p.x / CELL_SIZE);
       const cellY = Math.floor(p.y / CELL_SIZE);
@@ -269,7 +261,7 @@
       const nwLatLng = map.unproject(nwPoint, BASE_ZOOM);
       const seLatLng = map.unproject(sePoint, BASE_ZOOM);
 
-      return [nwLatLng, seLatLng]; // Leaflet rectangle bounds
+      return [nwLatLng, seLatLng];
     }
 
     // ==========================
@@ -312,7 +304,6 @@
         fillOpacity: 0.8,
       });
 
-      // 호버 시 닉네임 툴팁
       if (cell.nickname) {
         rect.bindTooltip(cell.nickname, {
           direction: 'top',
@@ -336,7 +327,6 @@
         return;
       }
 
-      // 백엔드에 저장
       const res = await fetch('/api/cells', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -348,12 +338,11 @@
         return;
       }
 
-      // 성공하면 클라이언트 상태 업데이트
       const cell = {
-        x: cellX,
-        y: cellY,
-        color,
-        nickname: currentUser.nickname,
+        x: data.x,
+        y: data.y,
+        color: data.color,
+        nickname: data.nickname,
       };
       cells.set(key, cell);
       drawCell(cell);
@@ -382,7 +371,6 @@
     // 7. 지도 클릭 핸들러
     // ==========================
     map.on('click', (e) => {
-      // 부산대 경계 밖 클릭이면 무시
       if (!pnuBounds.contains(e.latlng)) {
         return;
       }
@@ -390,7 +378,6 @@
       const { cellX, cellY } = latLngToCell(e.latlng);
       const key = `${cellX},${cellY}`;
 
-      // 이미 칠해진 칸이면: 닉네임만 알림
       if (cells.has(key)) {
         const cell = cells.get(key);
         alert(`이미 "${cell.nickname}" 님이 칠한 칸입니다.`);
@@ -399,13 +386,10 @@
         return;
       }
 
-      // 빈 칸이면: 선택한 셀 하이라이트 + 색 선택 UI
       pendingCell = { cellX, cellY };
 
-      // 기존 선택 사각형 제거
       clearSelectionHighlight();
 
-      // 새 선택 사각형 생성
       const bounds = cellToBounds(cellX, cellY);
       selectedRect = L.rectangle(bounds, {
         color: '#ffffff',
@@ -418,7 +402,37 @@
     });
 
     // ==========================
-    // 8. 초기화
+    // 8. WebSocket(Socket.IO) 연동
+    // ==========================
+    const socket = io();
+
+    socket.on('connect', () => {
+      console.log('✅ WebSocket connected:', socket.id);
+    });
+
+    socket.on('cell_update', ({ x, y, color, nickname }) => {
+      const key = `${x},${y}`;
+      const existing = cells.get(key);
+
+      const cell = { x, y, color, nickname };
+      cells.set(key, cell);
+
+      if (existing && existing.rect) {
+        existing.rect.setStyle({ color, fillColor: color });
+        existing.rect.unbindTooltip();
+        if (nickname) {
+          existing.rect.bindTooltip(nickname, {
+            direction: 'top',
+            sticky: true,
+          });
+        }
+      } else {
+        drawCell(cell);
+      }
+    });
+
+    // ==========================
+    // 9. 초기화
     // ==========================
     document.addEventListener('DOMContentLoaded', async () => {
       initAuthForms();
