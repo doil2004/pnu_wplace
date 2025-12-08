@@ -7,7 +7,6 @@ const DebugGridLayer = L.GridLayer.extend({
   },
 
   createTile: function (coords) {
-    console.log('[Debug] createTile', coords);
 
     const tile = L.DomUtil.create('canvas', 'leaflet-tile debug-tile');
 

@@ -5,6 +5,7 @@ class ColorPicker {
     this.currentColor = COLORS[0];
     
     this.element = document.getElementById(id);
+    this.element.className = 'color-picker'
     
     // span 뒤에 컬러 점들 넣기
     COLORS.forEach((color, idx) => {

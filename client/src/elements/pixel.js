@@ -1,4 +1,10 @@
+const GRID_ZOOM = 19;   // 이 줌 레벨 기준으로 그리드 정의
+const CELL_SIZE = 16;   // GRID_ZOOM에서 한 셀의 크기(월드 픽셀 단위)
+
 const PixelGridLayer = L.GridLayer.extend({
+
+  pixelGrid: new Map(),
+
   options: {
     pane: 'overlayPane',
     tileSize: 256,
@@ -44,7 +50,7 @@ const PixelGridLayer = L.GridLayer.extend({
     for (let cellX = cellXStart; cellX <= cellXEnd; cellX++) {
       for (let cellY = cellYStart; cellY <= cellYEnd; cellY++) {
         const key = `${cellX},${cellY}`;
-        const color = pixelGrid.get(key);
+        const color = this.pixelGrid.get(key);
         if (!color) continue;
 
         const cellOriginGridX = cellX * CELL_SIZE;
@@ -101,7 +107,7 @@ const PixelGridLayer = L.GridLayer.extend({
     const pGrid = map.project(latlng, GRID_ZOOM);
     const cellX = Math.floor(pGrid.x / CELL_SIZE);
     const cellY = Math.floor(pGrid.y / CELL_SIZE);
-    pixelGrid.set(`${cellX},${cellY}`, color);
+    this.pixelGrid.set(`${cellX},${cellY}`, color);
 
     // 2) 현재 줌/타일 좌표 계산
     const z = map.getZoom();
