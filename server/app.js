@@ -48,13 +48,6 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/cells', cellRoutes);
 
-// 루트 페이지
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
-
-app.use('/client', express.static(path.join(__dirname, '..', 'client')));
-
 // ✅ 여기서 express가 아니라 http 서버를 listen 해야 함
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

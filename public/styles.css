@@ -1,0 +1,163 @@
+* {
+  margin: 0; padding: 0; box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+              sans-serif;
+}
+html, body { width: 100%; height: 100%; }
+#map { width: 100vw; height: 100vh; }
+
+.card {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1001;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  font-size: 13px;
+  max-width: 260px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.auth-tab.active {
+  font-weight: 600;
+  border-bottom-color: #333;
+}
+
+.auth-field {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 0;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #333;
+  color: white;
+}
+
+.auth-card[data-logged-in=false] .logged-in { display: none; }
+.auth-card[data-logged-in=true] .logged-out { display: none; }
+
+.auth-card[data-mode="login"] .register-form { display: none; }
+.auth-card[data-mode="register"] .login-form { display: none; }
+
+.auth-card .logged-in {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.logged-in-greeting {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #222;
+}
+
+.logged-in-greeting .me-nickname {
+  font-weight: 700;
+  color: #111;
+}
+
+.logout-btn {
+  width: 100%;
+  padding: 9px 0;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #f7f7f7;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
+}
+
+.logout-btn:hover {
+  background: #eee;
+  border-color: #ccc;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.16);
+}
+
+.logout-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.auth-guide {
+  margin-top: 2px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f5f5f5;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #555;
+}
+
+/* for ColorPicker */
+.color-picker {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 12px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  display: none;
+  gap: 8px;
+  align-items: center;
+  z-index: 1000;
+}
+
+.color-picker button {
+  font-size: 14px;
+  margin-right: 6px;
+}
+
+.color-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+}
+
+/* for DebugGridLayer */
+.debug-tile {
+  image-rendering: pixelated;
+  display: block;
+}
+
+/* for PixelGridLayer */
+.pixel-tile {
+  image-rendering: pixelated;
+}
