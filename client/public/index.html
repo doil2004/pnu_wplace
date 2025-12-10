@@ -9,8 +9,9 @@
     
     <link rel="stylesheet" href="./styles.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 
-    <script src="../src/test.js"></script> <!-- 격자 확인용으로 넣어본 부분 -->
+    <script src="../src/test.js"></script>
     <script src="../src/elements/pixel.js"></script>
     <script src="../src/elements/color-picker.js"></script>
     <script src="../src/elements/auth-card.js"></script>
@@ -62,9 +63,13 @@
         </form>
       </div>
       <div class="logged-in">
-        <p><strong class="me-nickname"></strong>님 안녕하세요!</p>
+        <p class="logged-in-greeting">
+          <strong class="me-nickname"></strong>님 안녕하세요!
+        </p>
+
         <button class="logout-btn">로그아웃</button>
-        <p style="margin-top:6px; font-size:12px; color:#555;">
+
+        <p class="auth-guide">
           · 지도를 클릭 → <br>
           &nbsp;&nbsp;셀 선택 후 아래에서 색 선택 <br>
           · 칠해진 칸 위에 마우스를 올리면<br>
@@ -115,14 +120,66 @@
       
       const colorPicker = new ColorPicker("color-picker", COLORS);
 
-      map.whenReady(() => {
+      map.whenReady(async () => {
         console.log('[Debug] map ready, adding layers');
         
         const pixelLayer = new PixelGridLayer();
         pixelLayer.addTo(map).bringToFront();
+
+        const res = await fetch('/api/cells');
+        const list = await res.json();
+        list.forEach(cell => {
+          const latlng = pixelLayer.cellToLatLngCenter(cell.x, cell.y);
+          pixelLayer.paintPixelAt(latlng, cell.color, cell.nickname);
+        });
         
-        map.on('click', (e) => {
-          pixelLayer.paintPixelAt(e.latlng, colorPicker.currentColor);
+        const socket = io();
+        socket.on('connect', () => {
+          console.log('✅ WebSocket connected:', socket.id);
+        });
+  
+        socket.on('cell_update', cell => {
+          const { x, y, color, nickname } = cell;
+          const latlng = pixelLayer.cellToLatLngCenter(x, y);
+          pixelLayer.paintPixelAt(
+            latlng, 
+            color,
+            nickname
+          );
+        });
+
+        map.on('click', async event => {
+          if (!pnuBounds.contains(event.latlng)) {
+            return;
+          }
+          if (!auth.user) {
+            alert("로그인 후 픽셀을 칠할 수 있습니다.");
+            return;
+          }
+          const { cellX, cellY } = pixelLayer.latLngToCell(event.latlng);
+          const color = colorPicker.currentColor;
+
+          if (pixelLayer.getCell(cellX, cellY)) {
+            alert(`이미 "${cell.nickname}" 님이 칠한 칸입니다.`);
+            return;
+          }
+
+          const res = await fetch('/api/cells', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x: cellX, y: cellY, color }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            alert(data.message || '픽셀 저장 실패');
+            return;
+          }
+
+          pixelLayer.paintPixelAt(
+            event.latlng,
+            color,
+            auth.user.nickname
+          );
         });
       });
       

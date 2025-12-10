@@ -1,5 +1,5 @@
-const GRID_ZOOM = 19;   // 이 줌 레벨 기준으로 그리드 정의
-const CELL_SIZE = 16;   // GRID_ZOOM에서 한 셀의 크기(월드 픽셀 단위)
+const GRID_ZOOM = 18;   // 이 줌 레벨 기준으로 그리드 정의
+const CELL_SIZE = 10;   // GRID_ZOOM에서 한 셀의 크기(월드 픽셀 단위)
 
 const PixelGridLayer = L.GridLayer.extend({
 
@@ -7,7 +7,7 @@ const PixelGridLayer = L.GridLayer.extend({
 
   options: {
     pane: 'overlayPane',
-    tileSize: 256,
+    tileSize: 200,
     opacity: 1,
     zIndex: 1100,
     showGrid: false
@@ -50,7 +50,7 @@ const PixelGridLayer = L.GridLayer.extend({
     for (let cellX = cellXStart; cellX <= cellXEnd; cellX++) {
       for (let cellY = cellYStart; cellY <= cellYEnd; cellY++) {
         const key = `${cellX},${cellY}`;
-        const color = this.pixelGrid.get(key);
+        const color = this.pixelGrid.get(key)?.color;
         if (!color) continue;
 
         const cellOriginGridX = cellX * CELL_SIZE;
@@ -99,7 +99,7 @@ const PixelGridLayer = L.GridLayer.extend({
   /**
    * 특정 latlng에 픽셀 하나를 칠하고, 화면에 떠 있는 해당 타일만 부분 업데이트
    */
-  paintPixelAt: function (latlng, color) {
+  paintPixelAt: function (latlng, color, nickname) {
     const map = this._map;
     if (!map) return;
 
@@ -107,7 +107,7 @@ const PixelGridLayer = L.GridLayer.extend({
     const pGrid = map.project(latlng, GRID_ZOOM);
     const cellX = Math.floor(pGrid.x / CELL_SIZE);
     const cellY = Math.floor(pGrid.y / CELL_SIZE);
-    this.pixelGrid.set(`${cellX},${cellY}`, color);
+    this.pixelGrid.set(`${cellX},${cellY}`, { color, nickname });
 
     // 2) 현재 줌/타일 좌표 계산
     const z = map.getZoom();
@@ -138,5 +138,26 @@ const PixelGridLayer = L.GridLayer.extend({
 
     ctx.fillStyle = color;
     ctx.fillRect(canvasX, canvasY, cellSizeAtZ, cellSizeAtZ);
-  }
+  },
+
+  cellToLatLngCenter: function (cellX, cellY) {
+    const centerPoint = L.point(
+      (cellX + 0.5) * CELL_SIZE,
+      (cellY + 0.5) * CELL_SIZE
+    );
+    return map.unproject(centerPoint, GRID_ZOOM);
+  },
+
+  latLngToCell: function (latlng) {
+    const pGrid = map.project(latlng, GRID_ZOOM);
+    const cellX = Math.floor(pGrid.x / CELL_SIZE);
+    const cellY = Math.floor(pGrid.y / CELL_SIZE);
+    return { cellX, cellY };
+  },
+
+  getCell: function (cellX, cellY) {
+    const key = `${cellX},${cellY}`;
+    const cell = this.pixelGrid.get(key);
+    return cell;
+  },
 });
