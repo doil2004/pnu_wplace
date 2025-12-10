@@ -4,11 +4,27 @@ const { createUser, findUserByEmail, findUserById } = require('../models/userMod
 
 const SALT_ROUNDS = 10;
 
+// 닉네임 검증용 정규식
+// - 1~16자
+// - 한글, 영어 대소문자, 숫자, 공백, -, _ 만 허용
+const NICKNAME_REGEX = /^[0-9A-Za-z가-힣 _-]{1,16}$/;
+
 exports.register = async (req, res) => {
   try {
-    const { email, password, nickname } = req.body;
+    let { email, password, nickname } = req.body;
     if (!email || !password || !nickname) {
       return res.status(400).json({ message: 'email, password, nickname 필요' });
+    }
+
+    // 닉네임 앞뒤 공백 제거
+    nickname = String(nickname).trim();
+
+    // 🔒 닉네임 형식 검증 (XSS / 이상한 문자 차단)
+    if (!NICKNAME_REGEX.test(nickname)) {
+      return res.status(400).json({
+        message:
+          '닉네임은 1~16자의 한글/영문/숫자/공백/-,_ 만 사용할 수 있습니다.',
+      });
     }
 
     const existing = await findUserByEmail(email);
@@ -17,6 +33,8 @@ exports.register = async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+    // 검증된 nickname만 DB에 저장
     const user = await createUser({ email, passwordHash, nickname });
 
     req.session.userId = user.id;
