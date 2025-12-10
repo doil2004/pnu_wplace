@@ -16,6 +16,9 @@ const PixelGridLayer = L.GridLayer.extend({
   initialize: function (opts) {
     L.GridLayer.prototype.initialize.call(this, opts);
     this._tileCanvases = new Map(); // 'z/x/y' -> canvas
+    this._hoverTooltip = null;
+    this._lastHoverCellKey = null;
+    this._onMouseMove = this._handleMouseMove.bind(this);
   },
 
   _tileKey: function (coords) {
@@ -89,11 +92,22 @@ const PixelGridLayer = L.GridLayer.extend({
   onAdd: function (map) {
     L.GridLayer.prototype.onAdd.call(this, map);
 
+    map.on('mousemove', this._onMouseMove);
+
     // 타일이 언로드되면 캐시에서도 지우기
     this.on('tileunload', (e) => {
       const key = this._tileKey(e.coords);
       this._tileCanvases.delete(key);
     });
+  },
+
+  onRemove: function (map) {
+    map.off('mousemove', this._onMouseMove);
+    if (this._hoverTooltip && this._hoverTooltip._map) {
+      this._map.removeLayer(this._hoverTooltip);
+    }
+    this._lastHoverCellKey = null;
+    L.GridLayer.prototype.onRemove.call(this, map);
   },
 
   /**
@@ -145,11 +159,11 @@ const PixelGridLayer = L.GridLayer.extend({
       (cellX + 0.5) * CELL_SIZE,
       (cellY + 0.5) * CELL_SIZE
     );
-    return map.unproject(centerPoint, GRID_ZOOM);
+    return this._map.unproject(centerPoint, GRID_ZOOM);
   },
 
   latLngToCell: function (latlng) {
-    const pGrid = map.project(latlng, GRID_ZOOM);
+    const pGrid = this._map.project(latlng, GRID_ZOOM);
     const cellX = Math.floor(pGrid.x / CELL_SIZE);
     const cellY = Math.floor(pGrid.y / CELL_SIZE);
     return { cellX, cellY };
@@ -159,5 +173,39 @@ const PixelGridLayer = L.GridLayer.extend({
     const key = `${cellX},${cellY}`;
     const cell = this.pixelGrid.get(key);
     return cell;
+  },
+
+  _handleMouseMove: function (event) {
+    if (!this._map) return;
+
+    const { cellX, cellY } = this.latLngToCell(event.latlng);
+    const key = `${cellX},${cellY}`;
+    const cell = this.pixelGrid.get(key);
+
+    if (cell && cell.nickname) {
+      if (!this._hoverTooltip) {
+        this._hoverTooltip = L.tooltip({
+          className: 'pixel-tooltip',
+          direction: 'top',
+          offset: [0, -6],
+        });
+      }
+
+      if (this._lastHoverCellKey !== key) {
+        this._hoverTooltip.setContent(cell.nickname);
+        this._lastHoverCellKey = key;
+      }
+      this._hoverTooltip.setLatLng(event.latlng);
+
+      if (!this._hoverTooltip._map) {
+        this._hoverTooltip.addTo(this._map);
+      }
+      return;
+    }
+
+    if (this._hoverTooltip && this._hoverTooltip._map) {
+      this._map.removeLayer(this._hoverTooltip);
+    }
+    this._lastHoverCellKey = null;
   },
 });
