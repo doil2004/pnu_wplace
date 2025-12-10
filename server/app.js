@@ -5,6 +5,7 @@ const session = require('express-session');
 const path = require('path');
 const http = require('http');             // ✅ 중요: HTTP 서버
 const { Server } = require('socket.io');  // ✅ 중요: Socket.IO
+const morgan = require('morgan');
 
 const authRoutes = require('./routes/auth');
 const cellRoutes = require('./routes/cells');
@@ -28,7 +29,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// (네가 만들었을 수도 있는 요청 로그 미들웨어가 있다면 여기)
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -46,11 +47,6 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 // API 라우터
 app.use('/api/auth', authRoutes);
 app.use('/api/cells', cellRoutes);
-
-// 루트 페이지
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
 
 // ✅ 여기서 express가 아니라 http 서버를 listen 해야 함
 const PORT = process.env.PORT || 3000;
