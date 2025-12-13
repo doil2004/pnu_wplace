@@ -1,14 +1,15 @@
+// 픽셀 색을 고르는 팔레트
 class ColorPicker {
 
   constructor(id, colors) {
     this.colors = colors;
-    this.currentColor = COLORS[0];
+    this.currentColor = this.colors[0];
     
     this.element = document.getElementById(id);
     this.element.className = 'color-picker'
     
-    // span 뒤에 컬러 점들 넣기
-    COLORS.forEach((color, idx) => {
+    // colors에 들어 있는 색을 바탕으로 팔레트 생성
+    this.colors.forEach((color, idx) => {
       const dot = document.createElement('button');
       dot.type = 'button';
       dot.className = 'color-dot';
@@ -30,7 +31,6 @@ class ColorPicker {
       this.element.appendChild(dot);
     });
     
-    // 색 선택창 보이게
     this.element.style.display = 'flex';
   }
 

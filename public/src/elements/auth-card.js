@@ -1,3 +1,4 @@
+// 회원가입, 로그인 등 관리하는 클래스
 class AuthCard {
   constructor(id) {
     this.user = null;
@@ -37,6 +38,7 @@ class AuthCard {
     this.tabs.forEach(t => t.classList.toggle('active', t === tab));
   }
 
+  // 입력된 form 내용을 바탕으로 로그인
   async login() {
     const formData = new FormData(this.loginForm);
     const body = {
@@ -56,6 +58,7 @@ class AuthCard {
     await this.fetchMe();
   }
 
+  // 입력된 form 내용을 바탕으로 회원가입
   async register() {
     const formData = new FormData(this.registerForm);
     const body = {
@@ -76,6 +79,7 @@ class AuthCard {
     await this.fetchMe();
   }
 
+  // 저장된 쿠키에 해당하는 자신의 유저정보를 받아옴
   async fetchMe() {
     const res = await fetch('/api/auth/me');
     this.user = await res.json();
@@ -83,6 +87,7 @@ class AuthCard {
     this.nicknameSpan.textContent = this.user.nickname;
   }
 
+  // 로그아웃
   async logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     this.user = null;

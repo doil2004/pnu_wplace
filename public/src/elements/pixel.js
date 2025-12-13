@@ -1,8 +1,10 @@
 const GRID_ZOOM = 18;   // 이 줌 레벨 기준으로 그리드 정의
 const CELL_SIZE = 10;   // GRID_ZOOM에서 한 셀의 크기(월드 픽셀 단위)
 
+// Leaflet을 이용하여 픽셀 표시하는 레이어 구현
 const PixelGridLayer = L.GridLayer.extend({
 
+  // "x,y" -> { color, nickname }
   pixelGrid: new Map(),
 
   options: {
@@ -13,6 +15,7 @@ const PixelGridLayer = L.GridLayer.extend({
     showGrid: false
   },
 
+  // 생성자
   initialize: function (opts) {
     L.GridLayer.prototype.initialize.call(this, opts);
     this._tileCanvases = new Map(); // 'z/x/y' -> canvas
@@ -76,19 +79,19 @@ const PixelGridLayer = L.GridLayer.extend({
     }
   },
 
+  // Leaflet 내부에서 호출되는 메서드
   createTile: function (coords) {
     const tile = L.DomUtil.create('canvas', 'leaflet-tile pixel-tile');
 
-    // 이 타일을 캐시에 등록
     const key = this._tileKey(coords);
     this._tileCanvases.set(key, tile);
 
-    // 현재까지의 pixelGrid 기준으로 전체 그리기
     this._drawTile(coords, tile);
 
     return tile;
   },
 
+  // Leaflet 내부에서 호출되는 메서드
   onAdd: function (map) {
     L.GridLayer.prototype.onAdd.call(this, map);
 
@@ -101,6 +104,7 @@ const PixelGridLayer = L.GridLayer.extend({
     });
   },
 
+  // Leaflet 내부에서 호출되는 메서드
   onRemove: function (map) {
     map.off('mousemove', this._onMouseMove);
     if (this._hoverTooltip && this._hoverTooltip._map) {
@@ -154,6 +158,7 @@ const PixelGridLayer = L.GridLayer.extend({
     ctx.fillRect(canvasX, canvasY, cellSizeAtZ, cellSizeAtZ);
   },
 
+  // 특정 픽셀 위치에 해당하는 위/경도 반환 (픽셀 중앙 기준)
   cellToLatLngCenter: function (cellX, cellY) {
     const centerPoint = L.point(
       (cellX + 0.5) * CELL_SIZE,
@@ -162,6 +167,7 @@ const PixelGridLayer = L.GridLayer.extend({
     return this._map.unproject(centerPoint, GRID_ZOOM);
   },
 
+  // 특정 위/경도에 해당하는 픽셀 위치 반환
   latLngToCell: function (latlng) {
     const pGrid = this._map.project(latlng, GRID_ZOOM);
     const cellX = Math.floor(pGrid.x / CELL_SIZE);
@@ -169,12 +175,14 @@ const PixelGridLayer = L.GridLayer.extend({
     return { cellX, cellY };
   },
 
+  // 특정 픽셀 위치에 해당하는 픽셀 정보 반환
   getCell: function (cellX, cellY) {
     const key = `${cellX},${cellY}`;
     const cell = this.pixelGrid.get(key);
     return cell;
   },
 
+  // 커서가 올라갈 경우 툴팁 처리
   _handleMouseMove: function (event) {
     if (!this._map) return;
 

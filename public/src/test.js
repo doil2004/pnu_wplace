@@ -1,11 +1,13 @@
+// Leaflet을 이용하여 지도에 그리드 표시
 const DebugGridLayer = L.GridLayer.extend({
   options: {
-    pane: 'overlayPane',  // 기본 타일 위에 올라오도록
-    tileSize: 256,
+    pane: 'overlayPane',
+    tileSize: 200,
     opacity: 0.2,
     zIndex: 1000
   },
 
+  // Leaflet 내부에서 호출되는 메서드
   createTile: function (coords) {
 
     const tile = L.DomUtil.create('canvas', 'leaflet-tile debug-tile');

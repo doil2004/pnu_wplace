@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="ko">
   <head>
+    <!-- 사용 라이브러리: Leaflet(지도 표시용), Socket.IO -->
+
     <title>PNU-WPLACE</title>
     <link
     rel="stylesheet"
@@ -77,9 +79,6 @@
         </p>
       </div>
     </div>
-    <script>
-      const auth = new AuthCard("auth-card");
-    </script>
 
     <script>
       // 부산대 영역
@@ -118,14 +117,16 @@
         '#af52de', // 보라
       ];
       
-      const colorPicker = new ColorPicker("color-picker", COLORS);
+      const colorPicker = new ColorPicker("color-picker", COLORS); // src/elements/color-picker.js
+      const auth = new AuthCard("auth-card"); // src/elements/auth-card.js
 
       map.whenReady(async () => {
         console.log('[Debug] map ready, adding layers');
         
-        const pixelLayer = new PixelGridLayer();
+        const pixelLayer = new PixelGridLayer(); // src/elements/pixel.js
         pixelLayer.addTo(map).bringToFront();
 
+        // 초기 지도의 픽셀 상태 요청
         const res = await fetch('/api/cells');
         const list = await res.json();
         list.forEach(cell => {
@@ -133,11 +134,13 @@
           pixelLayer.paintPixelAt(latlng, cell.color, cell.nickname);
         });
         
+        // 소켓 연결
         const socket = io();
         socket.on('connect', () => {
           console.log('✅ WebSocket connected:', socket.id);
         });
   
+        // 서버의 실시간 픽셀 변경사항 반영
         socket.on('cell_update', cell => {
           const { x, y, color, nickname } = cell;
           const latlng = pixelLayer.cellToLatLngCenter(x, y);
@@ -148,6 +151,7 @@
           );
         });
 
+        // 지도 클릭 -> 픽셀 찍기
         map.on('click', async event => {
           if (!pnuBounds.contains(event.latlng)) {
             return;
@@ -164,6 +168,7 @@
             return;
           }
 
+          // 픽셀을 찍는 건 HTTP POST로 구현
           const res = await fetch('/api/cells', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -183,8 +188,9 @@
         });
       });
       
+      // 테스트용 함수
       function showDebugLayer() {
-        const debugLayer = new DebugGridLayer();
+        const debugLayer = new DebugGridLayer(); // src/test.js
         debugLayer.addTo(map).bringToFront();
       }
 
